@@ -1,0 +1,14 @@
+npm init -y => nodejs application initiate
+
+npm i express => install express package
+
++ server
+
++ rest api
+    -tells use http protocol/ method
+         - get,post,put,patch,delete
+
+         #GET ==> when data needed to be fetch from the server
+         #POST ==> When data needed to send to the server
+         #PATCH ==> when data is already on server and needed to be update
+         #DELETE ==> to delete data from the server
