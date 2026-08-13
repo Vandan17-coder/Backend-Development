@@ -1,6 +1,7 @@
 // this file will create server
 
 const express = require("express")
+const noteModel = require("./models/note.model")
 
 const app = express()
 
@@ -8,11 +9,15 @@ const app = express()
 // It allows express to read JSON data sent in request body
 app.use(express.json())
 
-const notes = []
 
 //creates api '/notes' , api method post
-app.post('/notes', (req,res) => {
-    notes.push(req.body)
+app.post('/notes', async (req,res) => {
+    
+    const data = req.body
+    await noteModel.create({
+        title: data.title,
+        discription: data.discription,
+    })
 
     res.status(201).json({
         message: "note created successfully"
@@ -20,31 +25,41 @@ app.post('/notes', (req,res) => {
 })
 
 //api method get, api '/notes'
-app.get('/notes', (req,res)=>{
+app.get('/notes',async (req,res)=>{
+
+    const notes = await noteModel.findOne({}) // this find() will always return array [] 
+
+    /* 
+        find => return array of object if data found [{},{}] and if not found then empty array []
+        findOne => return object if data found {} and if not found return null
+    */
+
     res.status(200).json({
         message: "notes fetch succefully",
         notes: notes
     })
 })
 
-// Delete a note using its index
-app.delete('/notes/:index', (req,res) => {
+// Delete a note using its id
+app.delete('/notes/:id',async (req,res) => {
 
-    const index = req.params.index
-    delete notes[index]
+    const id = req.params.id
+    await noteModel.findOneAndDelete({
+        _id: id
+    })
 
     res.status(200).json({
         message: "note deleted successfully"
     })
 })
 
-// Update a note using its index
-app.patch('/notes/:index', (req,res)=>{
+// Update a note using its id
+app.patch('/notes/:id',async (req,res)=>{
     
-    const index = req.params.index
+    const id = req.params.id
     const discription = req.body.discription
 
-    notes[ index ].discription = discription
+    await noteModel.findOneAndUpdate({_id: id},{ discription: discription })
     
     res.status(200).json({
         message: "note updated successfully"
