@@ -12,4 +12,3 @@ npm i express => install express package
          #POST ==> When data needed to send to the server
          #PATCH ==> when data is already on server and needed to be update
          #DELETE ==> to delete data from the server
-+ cors
