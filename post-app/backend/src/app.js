@@ -3,10 +3,10 @@ const postRoutes = require("./routes/post.routes");
 
 const app = express()
 
-//Middleware
+// Middleware
 app.use(express.json());
 
-//Routes
+// Routes   
 app.use("/api/posts", postRoutes);
 
 module.exports = app;
