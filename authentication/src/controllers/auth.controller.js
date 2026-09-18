@@ -28,20 +28,37 @@ const register = async(req, res) => {
             password: hashedPassword
         });
         
-        const token = jwt.sign(
+        const accessToken = jwt.sign(
             {
                 id: user._id
             },
             config.JWT_SECRET,
             {
-                expiresIn: "1d"
+                expiresIn: "15min"
             }
         )
+
+        const refereshToken = jwt.sign(
+            {
+                id: user._id
+            },
+            config.JWT_SECRET,
+            {
+                expiresIn: "7d"
+            }
+        )
+
+        res.cookie("refereshToken", refereshToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        })
 
         res.status(201).json({
             message: "user register successfully",
             user,
-            token
+            accessToken
         })
   
     }
@@ -76,4 +93,44 @@ const getMe = async (req,res) => {
     })
 }
 
-module.exports = {register,getMe};
+const refereshToken = async(req, res) => {
+    const refereshToken = req.cookies.refereshToken;
+    console.log(req.cookies);
+    if(!refereshToken) {
+        return res.status(401).json({
+            message: "referesh token not found"
+        })
+    }
+
+    const decoded = jwt.verify(refereshToken, config.JWT_SECRET);
+
+    const accessToken = jwt.sign({
+            id: decoded.id
+        }, config.JWT_SECRET,
+        {  
+            expiresIn: "15m"
+        }
+    )
+
+    const newRefereshToken= jwt.sign({
+            id: decoded.id
+        }, config.JWT_SECRET,
+        {
+            expiresIn: "7d"
+        }
+    )
+
+    res.cookie("refereshToken", newRefereshToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        })
+
+    res.status(200).json({
+        message: "Access token refereshed successfully",
+        accessToken
+    })
+}
+
+module.exports = {register,getMe,refereshToken};
