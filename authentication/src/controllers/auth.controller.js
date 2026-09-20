@@ -1,7 +1,8 @@
 const User = require("../models/User.model")
 const bcrypt = require('bcrypt');
 const config = require("../config/config");
-const jwt = require("jsonwebtoken")
+const jwt = require("jsonwebtoken");
+const sessionModel = require("../models/session.model")
 
 const register = async(req, res) => {
     try {
@@ -27,16 +28,6 @@ const register = async(req, res) => {
             email,
             password: hashedPassword
         });
-        
-        const accessToken = jwt.sign(
-            {
-                id: user._id
-            },
-            config.JWT_SECRET,
-            {
-                expiresIn: "15min"
-            }
-        )
 
         const refereshToken = jwt.sign(
             {
@@ -45,6 +36,26 @@ const register = async(req, res) => {
             config.JWT_SECRET,
             {
                 expiresIn: "7d"
+            }
+        )
+
+        const refereshTokenHash = await bcrypt.hash(refereshToken, 20);
+
+        const session = await sessionModel.create({
+            user: user._id,
+            refereshTokenHash,
+            ip: req.ip,
+            userAgent: req.headers[ "user-agent" ]
+        })
+        
+        const accessToken = jwt.sign(
+            {
+                id: user._id,
+                sessionId: session._id,
+            },
+            config.JWT_SECRET,
+            {
+                expiresIn: "15min"
             }
         )
 
@@ -95,7 +106,7 @@ const getMe = async (req,res) => {
 
 const refereshToken = async(req, res) => {
     const refereshToken = req.cookies.refereshToken;
-    console.log(req.cookies);
+    
     if(!refereshToken) {
         return res.status(401).json({
             message: "referesh token not found"
