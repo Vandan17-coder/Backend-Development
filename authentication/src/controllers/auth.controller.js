@@ -2,7 +2,6 @@ const User = require("../models/User.model")
 const bcrypt = require('bcrypt');
 const config = require("../config/config");
 const jwt = require("jsonwebtoken");
-const sessionModel = require("../models/session.model")
 
 const register = async(req, res) => {
     try {
@@ -38,20 +37,10 @@ const register = async(req, res) => {
                 expiresIn: "7d"
             }
         )
-
-        const refereshTokenHash = await bcrypt.hash(refereshToken, 20);
-
-        const session = await sessionModel.create({
-            user: user._id,
-            refereshTokenHash,
-            ip: req.ip,
-            userAgent: req.headers[ "user-agent" ]
-        })
         
         const accessToken = jwt.sign(
             {
                 id: user._id,
-                sessionId: session._id,
             },
             config.JWT_SECRET,
             {
