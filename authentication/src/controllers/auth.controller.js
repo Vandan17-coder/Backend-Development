@@ -1,7 +1,9 @@
 const User = require("../models/User.model")
 const bcrypt = require('bcrypt');
+const crypto = require("crypto");
 const config = require("../config/config");
 const jwt = require("jsonwebtoken");
+const sessionModel = require("../models/session.model");
 
 const register = async(req, res) => {
     try {
@@ -28,7 +30,7 @@ const register = async(req, res) => {
             password: hashedPassword
         });
 
-        const refereshToken = jwt.sign(
+        const refreshToken = jwt.sign(
             {
                 id: user._id
             },
@@ -37,10 +39,20 @@ const register = async(req, res) => {
                 expiresIn: "7d"
             }
         )
+
+        const refreshTokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
+
+        const session = await sessionModel.create({
+            user: user._id,
+            refreshTokenHash,
+            ip: req.ip,
+            userAgent: req.headers["user-agent"]
+        })
         
         const accessToken = jwt.sign(
             {
                 id: user._id,
+                sessionId: session._id
             },
             config.JWT_SECRET,
             {
@@ -48,9 +60,9 @@ const register = async(req, res) => {
             }
         )
 
-        res.cookie("refereshToken", refereshToken, {
+        res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
-            secure: true,
+            secure: false,
             sameSite: "strict",
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         })
@@ -93,16 +105,29 @@ const getMe = async (req,res) => {
     })
 }
 
-const refereshToken = async(req, res) => {
-    const refereshToken = req.cookies.refereshToken;
+const refreshToken = async(req, res) => {
+    const refreshToken = req.cookies.refreshToken;
     
-    if(!refereshToken) {
+    if(!refreshToken) {
         return res.status(401).json({
-            message: "referesh token not found"
+            message: "refresh token not found"
         })
     }
 
-    const decoded = jwt.verify(refereshToken, config.JWT_SECRET);
+    const decoded = jwt.verify(refreshToken, config.JWT_SECRET);
+
+    const refreshTokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
+
+    const session = await sessionModel.findOne({
+        refreshTokenHash,
+        revoked: false
+    })
+
+    if(!session){
+        return res.status(401).json({
+            message: "Invalid refresh token"
+        })
+    }
 
     const accessToken = jwt.sign({
             id: decoded.id
@@ -112,7 +137,7 @@ const refereshToken = async(req, res) => {
         }
     )
 
-    const newRefereshToken= jwt.sign({
+    const newrefreshToken= jwt.sign({
             id: decoded.id
         }, config.JWT_SECRET,
         {
@@ -120,17 +145,55 @@ const refereshToken = async(req, res) => {
         }
     )
 
-    res.cookie("refereshToken", newRefereshToken, {
+    const newrefreshTokenHash = crypto.createHash("sha256").update(newrefreshToken).digest("hex");
+
+    session.refreshTokenHash = newrefreshTokenHash;
+    await session.save();
+
+    res.cookie("refreshToken", newrefreshToken, {
             httpOnly: true,
-            secure: true,
+            secure: false,
             sameSite: "strict",
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         })
 
     res.status(200).json({
-        message: "Access token refereshed successfully",
+        message: "Access token refreshed successfully",
         accessToken
     })
 }
 
-module.exports = {register,getMe,refereshToken};
+const logout = async(req, res) => {
+
+    const refreshToken = req.cookies.refreshToken;
+
+    if(!refreshToken){
+        return res.status(400).json({
+            message: "Refresh token not found"
+        })
+    }
+
+    const refreshTokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
+
+    const session = await sessionModel.findOne({
+        refreshTokenHash,
+        revoked: false
+    })
+
+    if(!session){
+        return res.status(400).json({
+            message: "Invalid refresh token"
+        })
+    }
+
+    session.revoked = true;
+    await session.save();
+
+    res.clearCookie("refreshToken");
+
+    res.status(200).json({
+        message: "Logged out successfully"
+    })
+}
+
+module.exports = {register,getMe,refreshToken,logout};

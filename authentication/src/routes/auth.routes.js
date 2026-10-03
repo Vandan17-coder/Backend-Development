@@ -1,5 +1,5 @@
 const express = require("express");
-const {register,getMe,refereshToken} = require("../controllers/auth.controller");
+const {register,getMe,refreshToken,logout} = require("../controllers/auth.controller");
 const authRouter = express.Router();
 
 /**
@@ -13,8 +13,13 @@ authRouter.post("/register", register);
 authRouter.get("/get-me", getMe);
 
 /**
- * GET /api/auth/referesh-token
+ * GET /api/auth/refresh-token
  */
-authRouter.get("/referesh-token", refereshToken );
+authRouter.get("/refresh-token", refreshToken );
+
+/**
+ * Get /api/auth/logout
+ */
+authRouter.get("/logout", logout )
 
 module.exports = authRouter;
