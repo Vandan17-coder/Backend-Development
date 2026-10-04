@@ -20,6 +20,6 @@ authRouter.get("/refresh-token", refreshToken );
 /**
  * Get /api/auth/logout
  */
-authRouter.get("/logout", logout )
+authRouter.get("/logout", logout );
 
 module.exports = authRouter;
