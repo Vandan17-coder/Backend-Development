@@ -5,18 +5,18 @@ const config = require("../config/config");
 const jwt = require("jsonwebtoken");
 const sessionModel = require("../models/session.model");
 
-const register = async(req, res) => {
+const register = async (req, res) => {
     try {
-        const {name,email,password} = req.body;
+        const { name, email, password } = req.body;
 
         const isAlreadyRegistered = await User.findOne({
             $or: [
-                {name},
-                {email}
+                { name },
+                { email }
             ]
         })
 
-        if(isAlreadyRegistered){
+        if (isAlreadyRegistered) {
             return res.status(409).json({
                 message: "Username or email already exists"
             });
@@ -48,7 +48,7 @@ const register = async(req, res) => {
             ip: req.ip,
             userAgent: req.headers["user-agent"]
         })
-        
+
         const accessToken = jwt.sign(
             {
                 id: user._id,
@@ -72,10 +72,9 @@ const register = async(req, res) => {
             user,
             accessToken
         })
-  
+
     }
-    catch(error)
-    {
+    catch (error) {
         res.status(500).json({
             message: "Failed to create a user",
             error: error.message
@@ -83,11 +82,11 @@ const register = async(req, res) => {
     }
 }
 
-const getMe = async (req,res) => {
-     
+const getMe = async (req, res) => {
+
     const token = req.headers.authorization?.split(" ")[1];
 
-    if(!token){
+    if (!token) {
         return res.status(401).json({
             message: "token not found"
         })
@@ -105,10 +104,10 @@ const getMe = async (req,res) => {
     })
 }
 
-const refreshToken = async(req, res) => {
+const refreshToken = async (req, res) => {
     const refreshToken = req.cookies.refreshToken;
-    
-    if(!refreshToken) {
+
+    if (!refreshToken) {
         return res.status(401).json({
             message: "refresh token not found"
         })
@@ -123,23 +122,23 @@ const refreshToken = async(req, res) => {
         revoked: false
     })
 
-    if(!session){
+    if (!session) {
         return res.status(401).json({
             message: "Invalid refresh token"
         })
     }
 
     const accessToken = jwt.sign({
-            id: decoded.id
-        }, config.JWT_SECRET,
-        {  
+        id: decoded.id
+    }, config.JWT_SECRET,
+        {
             expiresIn: "15m"
         }
     )
 
-    const newrefreshToken= jwt.sign({
-            id: decoded.id
-        }, config.JWT_SECRET,
+    const newrefreshToken = jwt.sign({
+        id: decoded.id
+    }, config.JWT_SECRET,
         {
             expiresIn: "7d"
         }
@@ -151,11 +150,11 @@ const refreshToken = async(req, res) => {
     await session.save();
 
     res.cookie("refreshToken", newrefreshToken, {
-            httpOnly: true,
-            secure: false,
-            sameSite: "strict",
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-        })
+        httpOnly: true,
+        secure: false,
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    })
 
     res.status(200).json({
         message: "Access token refreshed successfully",
@@ -163,11 +162,11 @@ const refreshToken = async(req, res) => {
     })
 }
 
-const logout = async(req, res) => {
+const logout = async (req, res) => {
 
     const refreshToken = req.cookies.refreshToken;
 
-    if(!refreshToken){
+    if (!refreshToken) {
         return res.status(400).json({
             message: "Refresh token not found"
         })
@@ -180,7 +179,7 @@ const logout = async(req, res) => {
         revoked: false
     })
 
-    if(!session){
+    if (!session) {
         return res.status(400).json({
             message: "Invalid refresh token"
         })
@@ -196,4 +195,55 @@ const logout = async(req, res) => {
     })
 }
 
-module.exports = {register,getMe,refreshToken,logout};
+const logoutAll = async (req, res) => {
+    try {
+        const refreshToken = req.cookies.refreshToken;
+
+        if (!refreshToken) {
+            return res.status(401).json({
+                message: "Refresh token not found"
+            });
+        }
+
+        const decoded = jwt.verify(refreshToken, config.JWT_SECRET);
+
+        const refreshTokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
+
+        const session = await sessionModel.findOne({
+            user: decoded.id,
+            refreshTokenHash,
+            revoked: false
+        });
+
+        if (!session) {
+            res.clearCookie("refreshToken");
+
+            return res.status(401).json({
+                message: "Invalid or revoked session"
+            });
+        }
+
+        await sessionModel.updateMany(
+            {
+                user: decoded.id,
+                revoked: false
+            },
+            {
+                $set: { revoked: true }
+            }
+        );
+
+        res.clearCookie("refreshToken");
+
+        return res.status(200).json({
+            message: "Logged out from all devices successfully"
+        });
+
+    } catch (error) {
+        return res.status(401).json({
+            message: "Invalid or expired refresh token"
+        });
+    }
+};
+
+module.exports = { register, getMe, refreshToken, logout, logoutAll };
