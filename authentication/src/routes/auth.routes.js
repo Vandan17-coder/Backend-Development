@@ -1,5 +1,5 @@
 const express = require("express");
-const {register,getMe,refreshToken,logout} = require("../controllers/auth.controller");
+const { register, login, getMe, refreshToken, logout, logoutAll } = require("../controllers/auth.controller");
 const authRouter = express.Router();
 
 /**
@@ -15,11 +15,21 @@ authRouter.get("/get-me", getMe);
 /**
  * GET /api/auth/refresh-token
  */
-authRouter.get("/refresh-token", refreshToken );
+authRouter.get("/refresh-token", refreshToken);
 
 /**
  * Get /api/auth/logout
  */
-authRouter.get("/logout", logout );
+authRouter.get("/logout", logout);
+
+/**
+ * Get /api/auth/logoutAll
+ */
+authRouter.get("/logoutAll", logoutAll);
+
+/**
+ * POST /api/auth/login
+ */
+authRouter.post("/login", login);
 
 module.exports = authRouter;

@@ -82,6 +82,74 @@ const register = async (req, res) => {
     }
 }
 
+const login = async (req, res) => {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email })
+
+    if (!user) {
+        return res.status(401).json({
+            message: "Invalid email or password"
+        })
+    }
+
+    if (!user.verified) {
+        return res.status(401).json({
+            message: "Email not verified"
+        })
+    }
+
+    const isPasswordValid = await bcrypt.compareSync(password, user.password);
+
+    if (!isPasswordValid) {
+        return res.status(401).json({
+            message: "Invalid email or password"
+        })
+    }
+
+    const refreshToken = jwt.sign({
+        id: user._id
+    }, config.JWT_SECRET,
+        {
+            expiresIn: "7d"
+        }
+    )
+
+    const refreshTokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
+
+    const session = await sessionModel.create({
+        user: user._id,
+        refreshTokenHash,
+        ip: req.ip,
+        userAgent: req.headers["user-agent"]
+    })
+
+    const accessToken = jwt.sign({
+        id: user._id,
+        sessionId: session._id
+    }, config.JWT_SECRET,
+        {
+            expiresIn: "15m"
+        }
+    )
+
+    res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    })
+
+    res.status(200).json({
+        message: "Logged in successfully",
+        user: {
+            name: user.name,
+            email: user.email,
+        },
+        accessToken,
+    })
+}
+
 const getMe = async (req, res) => {
 
     const token = req.headers.authorization?.split(" ")[1];
@@ -129,7 +197,8 @@ const refreshToken = async (req, res) => {
     }
 
     const accessToken = jwt.sign({
-        id: decoded.id
+        id: decoded.id,
+        sessionId: session._id
     }, config.JWT_SECRET,
         {
             expiresIn: "15m"
@@ -246,4 +315,4 @@ const logoutAll = async (req, res) => {
     }
 };
 
-module.exports = { register, getMe, refreshToken, logout, logoutAll };
+module.exports = { register, login, getMe, refreshToken, logout, logoutAll };
