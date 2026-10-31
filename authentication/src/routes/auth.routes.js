@@ -31,5 +31,9 @@ authRouter.get("/logoutAll", logoutAll);
  * POST /api/auth/login
  */
 authRouter.post("/login", login);
+/**
+ * POST /api/auth/verify
+ */
+authRouter.post("/verify", verify);
 
 module.exports = authRouter;
